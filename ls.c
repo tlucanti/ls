@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <stddef.h>
+#include <string.h>
 
 void *xmalloc(size_t size)
 {
@@ -24,6 +25,12 @@ void *xmalloc(size_t size)
                      offsetof(type, member) );          \
                      })
 
+#define swap(lhs, rhs) do {                             \
+    typeof(lhs) c = lhs;                                \
+    lhs = rhs;                                          \
+    rhs = c;                                            \
+} while (false)
+
 struct slist {
     struct slist *next;
 };
@@ -31,6 +38,7 @@ struct slist {
 struct file_list {
     struct slist slist_entry;
     struct dirent *file_entry;
+    struct stat stat_entry;
 };
 
 struct dirent **ls(const char *path, size_t *file_cnt_ptr)
@@ -53,6 +61,7 @@ struct dirent **ls(const char *path, size_t *file_cnt_ptr)
         next->slist_entry.next = &list->slist_entry;
         list = next;
         file_entry = readdir(dir);
+        stat(file_entry->d_name, &);
         ++file_cnt;
     }
     file_array = (struct dirent **)xmalloc(sizeof(void *) * file_cnt);
@@ -81,11 +90,11 @@ void __qsort(struct dirent **arr,
     li = left;
     ri = right;
     pi = (left + right) / 2;
-    while ri - li > 0 {
+    while (ri - li > 0) {
         while (li < pi && !operator(arr[li], arr[pi])) {
             li += 1;
         }
-        while (ri > pi && operator(arr[ri] >= arr[pi])) {
+        while (ri > pi && operator(arr[ri], arr[pi])) {
             ri -= 1;
         }
         swap(arr[li], arr[ri]);
@@ -103,9 +112,19 @@ void __qsort(struct dirent **arr,
     }
 }
 
-void qsort(struct dirent **array, size_t size, operator_t operator)
+void ls_qsort(struct dirent **array, size_t size, operator_t operator)
 {
     __qsort(array, size, operator, 0, size - 1);
+}
+
+bool acending_order(struct dirent *lhs, struct dirent *rhs)
+{
+    return strcmp(lhs->d_name, rhs->d_name) >= 0;
+}
+
+bool dot_filter(struct dirent *entry)
+{
+    return entry->d_name[0] != '.';
 }
 
 int main(int argc, char **argv)
@@ -114,7 +133,10 @@ int main(int argc, char **argv)
     (void)argv;
     size_t size;
     struct dirent **file_array = ls(".", &size);
+    ls_qsort(file_array, size, acending_order);
     for (size_t i = 0; i < size; ++i) {
-        printf("%s\n", file_array[i]->d_name);
+        if (dot_filter(file_array[i])) {
+            printf("%s\n", file_array[i]->d_name);
+        }
     }
 }
