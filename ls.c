@@ -1,45 +1,5 @@
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <stddef.h>
-#include <string.h>
-
-void *xmalloc(size_t size)
-{
-    void *ptr;
-
-    ptr = malloc(size);
-    if (!ptr) {
-        printf("malloc error\n");
-        exit(1);
-    }
-    return ptr;
-}
-
-#define container_of(ptr, type, member) ({              \
-                     const typeof( ((type*)0)->member ) \
-                     * __mptr = ((void*)(ptr));         \
-                     (type*)( (char*)__mptr -           \
-                     offsetof(type, member) );          \
-                     })
-
-#define swap(lhs, rhs) do {                             \
-    typeof(lhs) c = lhs;                                \
-    lhs = rhs;                                          \
-    rhs = c;                                            \
-} while (false)
-
-struct slist {
-    struct slist *next;
-};
-
-struct file_list {
-    struct slist slist_entry;
-    struct dirent *file_entry;
-    struct stat stat_entry;
-};
+#include <ls/ls.h>
 
 struct dirent **ls(const char *path, size_t *file_cnt_ptr)
 {
@@ -61,7 +21,7 @@ struct dirent **ls(const char *path, size_t *file_cnt_ptr)
         next->slist_entry.next = &list->slist_entry;
         list = next;
         file_entry = readdir(dir);
-        stat(file_entry->d_name, &);
+        //stat(file_entry->d_name, &);
         ++file_cnt;
     }
     file_array = (struct dirent **)xmalloc(sizeof(void *) * file_cnt);

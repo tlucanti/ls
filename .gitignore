@@ -2,5 +2,5 @@
 *.swp
 *.swo
 *.swn
-./ls
-build
+/ls
+/build
