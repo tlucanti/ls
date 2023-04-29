@@ -2,5 +2,7 @@
 *.swp
 *.swo
 *.swn
+/tags
 /ls
 /build
+/test

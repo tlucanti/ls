@@ -35,30 +35,50 @@ struct file_info *get_entries(const char *path, size_t *file_cnt_ptr)
             file_cnt = i;
             break ;
         }
-        file_array[i].dir_entry = dir_entry;
+        file_array[i].dir_entry = (struct dirent *)malloc(sizeof(struct dirent));
         file_array[i].stat_entry = (struct stat *)malloc(sizeof(struct stat));
-        if (file_array[i].stat_entry == NULL) {
+        if (file_array[i].stat_entry == NULL || file_array[i].dir_entry == NULL) {
             return ENOMEM;
         }
-        stat(file_array[i].dir_entry->d_name, file_array[i].stat_entry);
+	memcpy_impl(file_array[i].dir_entry, dir_entry, sizeof(struct dirent));
+        if (stat(file_array[i].dir_entry->d_name, file_array[i].stat_entry)) {
+		panic("stat error");
+	}
     }
     closedir(dir);
     *file_cnt_ptr = file_cnt;
     return file_array;
 }
 
+static bool skip_file(struct file_info file_info, struct options options)
+{
+    const char *fname = file_info.dir_entry->d_name;
+
+    if ((streq_literal(fname, ".") || streq_literal(fname, "..")) && !options.show_dummy) {
+	    return true;
+    } else if (fname[0] == '.' && !options.show_hidden) {
+	    return true;
+    }
+    return false;
+}
+
 static inline void print_file(struct file_info file_info, struct options options)
 {
-    if (file_info.dir_entry->d_name[0] == '.' && !options.all) {
-        return ;
-    }
-    puts_impl(file_info.dir_entry->d_name);
-    puts_literal("\n");
+	if (!skip_file(file_info, options)) {
+		puts_impl(file_info.dir_entry->d_name);
+		puts_literal("\n");
+	}
 }
 
 static void __print_path_chain(struct path_chain *chain)
 {
+    bool first = true;
+
     while (chain) {
+	if (!first) {
+		puts_literal("/");
+	}
+	first = false;
         puts_impl(chain->name);
         chain = container_of(chain->slist_entry.next,
                              struct path_chain,
@@ -109,30 +129,49 @@ void qsort_impl(struct file_info *data,
 }
 
 void ls(const char *path,
-        struct argument_callbacks *callbacks,
+	bool (*compare)(struct file_info lhs, struct file_info rhs),
         struct options options,
         struct path_chain_head *path_chain)
 {
     struct file_info *file_array;
     size_t size;
     struct path_chain chain_entry;
+    struct slist *chain_end;
+    const char *next_path;
+    static bool query_separator = false;
 
     file_array = get_entries(path, &size);
     if (unlikely(file_array == ENOMEM)) {
         panic("no memory");
     }
-    qsort_impl(file_array, size, callbacks->compare, options.reverse);
+    qsort_impl(file_array, size, compare, options.reverse);
+    if (options.multi_query || options.recursive) {
+	if (query_separator) {
+		puts_literal("\n");
+	} else {
+		query_separator = true;
+	}
+        __print_path_chain(&path_chain->begin);
+	puts_literal(":\n");
+    }
     for (size_t i = 0; i < size; ++i) {
         print_file(file_array[i], options);
     }
     if (options.recursive) {
         for (size_t i = 0; i < size; ++i) {
-            __print_path_chain(&path_chain->begin);
-            chain_entry.name = file_array[i].dir_entry->d_name;
-            path_chain->end->slist_entry.next = &chain_entry.slist_entry;
-            path_chain->end = &chain_entry;
-            if (S_ISDIR(file_array[i].stat_entry->st_mode)) {
-                ls(file_array[i].dir_entry->d_name, callbacks, options, path_chain);
+            next_path = file_array[i].dir_entry->d_name;
+            if (S_ISDIR(file_array[i].stat_entry->st_mode)
+		&& !skip_file(file_array[i], options)
+		&& !streq_literal(next_path, "..") && !streq_literal(next_path, ".")) {
+			chain_end = path_chain->end;
+            		chain_entry.name = next_path;
+	    		chain_entry.slist_entry.next = NULL;
+            		path_chain->end->next = &chain_entry.slist_entry;
+            		path_chain->end = path_chain->end->next;
+			chdir(next_path);
+			ls(".", compare, options, path_chain);
+			chdir("..");
+			path_chain->end = chain_end;
             }
         }
     }
@@ -140,27 +179,38 @@ void ls(const char *path,
 
 static inline bool sort_by_name(struct file_info lhs, struct file_info rhs)
 {
-    return strcmp(lhs.dir_entry->d_name, rhs.dir_entry->d_name) >= 0;
+    return strcmp_impl(lhs.dir_entry->d_name, rhs.dir_entry->d_name) >= 0;
 }
 
 static inline bool sort_by_size(struct file_info lhs, struct file_info rhs)
 {
-
+        return lhs.stat_entry->st_size > rhs.stat_entry->st_size;
 }
 
 static inline bool sort_by_time(struct file_info lhs, struct file_info rhs)
 {
-
+        return lhs.stat_entry->st_atim.tv_sec > rhs.stat_entry->st_atim.tv_sec;
 }
 
 static inline bool sort_by_version(struct file_info lhs, struct file_info rhs)
 {
-
+	return sort_by_name(lhs, rhs);
 }
 
 static inline bool sort_by_extension(struct file_info lhs, struct file_info rhs)
 {
+	const char *n1 = strrchr_impl(lhs.dir_entry->d_name, '.');
+	const char *n2 = strrchr_impl(rhs.dir_entry->d_name, '.');
 
+	if (n1 == NULL && n2 == NULL) {
+		n1 = lhs.dir_entry->d_name;
+		n2 = lhs.dir_entry->d_name;
+	} else if (n1 == NULL) {
+		return false;
+	} else if (n2 == NULL) {
+		return true;
+	}
+	return strcmp_impl(n1, n2) >= 0;
 }
 
 void argparse(char **argv,
@@ -168,10 +218,11 @@ void argparse(char **argv,
                      struct options *options)
 {
     char *binary_name = *argv;
+    char **queries = argv;
+    int queries_num = 0;
     char *s;
 
-    *sort_function = sort_by_name
-    callbacks->compare = ascending_order;
+    *sort_function = sort_by_name;
     options->show_hidden = 0;
     options->show_dummy = 0;
     options->ignore_backups = 0;
@@ -187,12 +238,17 @@ void argparse(char **argv,
     options->numeric_uid_gid = 0;
     options->quote_name = 0;
     options->reverse = 1;
-    options->recursive = 1;
-    optione->show_size = 0;
+    options->recursive = 0;
+    options->show_size = 0;
     options->u = 0;
-    while (*argv) {
-        if (*argv[0] == '-') {
-            if (*argv[1] == '-') {
+    options->dont_sort = 0;
+    options->c = 0;
+    options->table_print = 0;
+    options->one_per_line = 0;
+    options->multi_query = 0;
+    while (*++argv) {
+        if ((*argv)[0] == '-') {
+            if ((*argv)[1] == '-') {
                 if (streq_literal(*argv, "--all")) {
                     options->show_hidden = 1;
                     options->show_dummy = 1;
@@ -316,12 +372,16 @@ void argparse(char **argv,
                 } else if (streq_literal(*argv, "--")) {
                     /* nothing */
                 } else {
-                    puts()
+                    puts_impl(binary_name);
+                    puts_literal(": unrecognized option `");
+                    puts_impl(*argv);
+                    puts_literal("`\n"
+                                 "Try ls --help for more information.\n");
                     exit(1);
                 }
             } else {
-                s = *argv + 1;
-                while (*s) {
+                s = *argv;
+                while (*++s) {
                     switch (*s) {
                     case 'a':
                         options->show_hidden = 1;
@@ -337,24 +397,23 @@ void argparse(char **argv,
                     case 'c':
                         options->c = 1;
                         break ;
-                    case 'd'
+                    case 'd':
                         options->directory = 1;
                         break ;
                     case 'f':
                         options->dont_sort = 1;
                         options->show_hidden = 1;
                         options->show_dummy = 1;
-                        options->long_format = 0;
+                        options->table_print = 0;
                         options->show_size = 0;
                         options->color = 0;
                         break ;
                     case 'F':
-                        options->classify = 1;
-                        options->file_type = 1;
+                        options->indicator_type = LS_INDICATOR_CLASSIFY;
                         break ;
                     case 'g':
                         options->show_owner = 0;
-                        options->long_format = 1;
+                        options->table_print = 1;
                         break ;
                     case 'G':
                         options->show_group = 0;
@@ -363,12 +422,12 @@ void argparse(char **argv,
                         options->human_readable = 1;
                         break ;
                     case 'i':
-                        options->inodes = 1;
+                        options->inode = 1;
                         break ;
                     case 'k':
                         break ;
                     case 'l':
-                        options->long_format = 1;
+                        options->table_print = 1;
                         break ;
                     case 'L':
                         options->dereference = 1;
@@ -380,7 +439,7 @@ void argparse(char **argv,
                         options->numeric_uid_gid = 1;
                         break ;
                     case 'o':
-                        options->long_format = 1;
+                        options->table_print = 1;
                         options->show_group = 0;
                         break ;
                     case 'p':
@@ -417,7 +476,8 @@ void argparse(char **argv,
                         *sort_function = sort_by_version;
                         break ;
                     case 'x':
-                        options->
+                        options->table_print = 0;
+			options->one_per_line = 0;
                         break ;
                     case 'X':
                         options->dont_sort = 0;
@@ -436,19 +496,34 @@ void argparse(char **argv,
                     }
                 }
             }
-        }
+	} else {
+		*queries = *argv;
+		++queries;
+		++queries_num;
+	}
     }
+    if (queries_num == 0) {
+	    *queries = ".";
+	    ++queries;
+    }
+    *queries = NULL;
+    options->multi_query = queries_num > 1;
 }
 
-int main(int argc, char **argv)
+int main(int, char **argv)
 {
-    struct argument_callbacks callbacks;
+	bool (*sort_function)(struct file_info lhs, struct file_info rhs);
     struct options options;
     struct path_chain_head head;
-    const char *begin_path;
 
-    begin_path = argparse(argv, &callbacks, &options);
-    head.end = &head.begin;
+    argparse(argv, &sort_function, &options);
+    head.begin.slist_entry.next = NULL;
+    head.end = &head.begin.slist_entry;
 
-    ls(begin_path, &callbacks, options, &head);
+    while (*argv) {
+	head.begin.name = *argv;
+	chdir(*argv);
+	ls(".", sort_function, options, &head);
+	++argv;
+    }
 }
