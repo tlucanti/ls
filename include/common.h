@@ -13,14 +13,15 @@
 #ifndef __used
 #define __used __attribute__((__used__))
 #endif
+#ifndef __unused
+#define __unused __attribute__((__unused__))
+#endif
 #ifndef __cold
 #define __cold __attribute__((__cold__))
 #endif
 #ifndef __noreturn
 #define __noreturn __attribute__((__noreturn__))
 #endif
-
-#define ENOMEM (void *)0x1
 
 #define container_of(ptr, type, member)                                    \
 	({                                                                 \
@@ -42,5 +43,25 @@
 		lhs = rhs;            \
 		rhs = c;              \
 	} while (false)
+
+#define panic(msg) __panic(__FILE__, number_to_string(__LINE__), msg)
+#define panic_on(expr, msg)           \
+	do {                          \
+		if (unlikely(expr)) { \
+			panic(msg);   \
+		}                     \
+	} while (false)
+
+__cold static inline __panic(const char *file, const char *line, const char *msg)
+{
+	puts_impl("PANIC: ");
+	puts_impl(file);
+	puts_impl(":");
+	puts_impl(line);
+	puts_impl("\nreason: ");
+	puts_impl(msg);
+	puts_impl("\n");
+	exit(EXIT_FAILURE);
+}
 
 #endif /* _COMMON_H */

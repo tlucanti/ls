@@ -155,7 +155,7 @@ void ls(const char *path,
 		} else {
 			query_separator = true;
 		}
-		__print_path_chain(&path_chain->begin);
+		puts_impl(path_chain->merged);
 		puts_literal(":\n");
 	}
 	for (size_t i = 0; i < size; ++i) {
@@ -168,16 +168,9 @@ void ls(const char *path,
 			    !skip_file(file_array[i], options) &&
 			    !streq_literal(next_path, "..") &&
 			    !streq_literal(next_path, ".")) {
-				chain_end = path_chain->end;
-				chain_entry.name = next_path;
-				chain_entry.slist_entry.next = NULL;
-				path_chain->end->next =
-					&chain_entry.slist_entry;
-				path_chain->end = path_chain->end->next;
-				chdir(next_path);
-				ls(".", compare, options, path_chain);
-				chdir("..");
-				path_chain->end = chain_end;
+				path_chain_append(path_chain, &chain_entry, next_path);
+				ls(path_chain->merged, compare, options, path_chain);
+				path_chain_pop(path_chain);
 			}
 		}
 	}
@@ -574,15 +567,16 @@ int main(int, char **argv)
 	bool (*sort_function)(struct file_info lhs, struct file_info rhs);
 	struct options options;
 	struct path_chain_head head;
+	size_t path_length;
 
 	argparse(argv, &sort_function, &options);
-	head.begin.slist_entry.next = NULL;
-	head.end = &head.begin.slist_entry;
+	path_chain_init(&head);
 
 	while (*argv) {
+		path_length = strlen_impl(*argv);
 		head.begin.name = *argv;
-		chdir(*argv);
-		ls(".", sort_function, options, &head);
+		memcpy_impl(head.merged, *argv, path_length);
+		ls(*argv, sort_function, options, &head);
 		++argv;
 	}
 }
