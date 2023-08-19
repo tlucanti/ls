@@ -22,12 +22,18 @@ void print_char(char c)
 	}
 }
 
-void print_str(const char *s)
+void print_str_raw(const char *s)
 {
 	while (*s) {
 		print_char(*s);
 		++s;
 	}
+}
+
+void print_str(const char *s)
+{
+	print_str_raw(s);
+	print_char('\n');
 }
 
 void print_int(long num)

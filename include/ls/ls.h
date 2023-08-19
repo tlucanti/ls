@@ -14,8 +14,14 @@ struct finfo_list {
 struct path_chain {
 	char *path;
 	size_t *dentry;
-	size_t size;
-	size_t alloc;
+	size_t path_size;
+	size_t path_alloc;
+	size_t dentry_size;
+	size_t dentry_alloc;
+};
+
+struct flags {
+	uint64_t recursive : 1;
 };
 
 #endif /* _LS_LS_H */

@@ -16,19 +16,19 @@ void sys_error()
 	error_msg = strerror(old_errno);
 	panic_on(errno != 0, "strerror error");
 
-	print_str("ls: ");
-	print_str(error_msg);
+	print_str_raw("ls: ");
+	print_str_raw(error_msg);
 	print_char('\n');
 }
 
 __cold void __panic(const char *file, unsigned long line, const char *reason)
 {
-	print_str("PANIC: ");
-	print_str(file);
+	print_str_raw("PANIC: ");
+	print_str_raw(file);
 	print_char(':');
 	print_uint(line);
-	print_str("\nreason: ");
-	print_str(reason);
+	print_str_raw("\nreason: ");
+	print_str_raw(reason);
 	print_char('\n');
 	exit(EXIT_FAILURE);
 }

@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 void print_char(char c);
+void print_str_raw(const char *s);
 void print_str(const char *s);
 void print_int(long num);
 void print_uint(unsigned long num);
