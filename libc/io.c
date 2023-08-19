@@ -14,12 +14,12 @@ static inline void print_flush(void)
 
 void print_char(char c) 
 {
+	print_buf[print_size] = c;
+	++print_size;
+
 	if (c == '\n' || print_size == PRINT_BUF_SIZE) {
 		print_flush();
 	}
-
-	print_buf[print_size] = c;
-	++print_size;
 }
 
 void print_str(const char *s)

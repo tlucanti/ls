@@ -2,7 +2,9 @@
 *.swp
 *.swo
 *.swn
+.cache
 /tags
+/compile_commands.json
 /ls
 /build
 /test

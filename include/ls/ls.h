@@ -1,6 +1,6 @@
 
-#ifndef _LS_H
-#define _LS_H
+#ifndef _LS_LS_H
+#define _LS_LS_H
 
 struct finfo {
 	char *fname;
@@ -18,4 +18,4 @@ struct path_chain {
 	size_t alloc;
 };
 
-#endif /* _LS_H */
+#endif /* _LS_LS_H */

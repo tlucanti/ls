@@ -4,6 +4,8 @@
 
 #include <ls/ls.h>
 
+#include <libc/string.h>
+
 const char *get_file_name(struct finfo *finfo)
 {
 	return finfo->fname;
@@ -46,7 +48,7 @@ int dir_walk(struct path_chain *path, struct finfo_list *list)
 	}
 
 	list->array = do_malloc(sizeof(struct finfo) * array_init_size);
-	list->size = array_init_size;
+	list->size = 0;
 	array_alloc_size = array_init_size;
 
 	while (true) {
@@ -75,12 +77,10 @@ int main() {
 		.path = strdup_impl(".")
 	  };
 
-	dir_walk(&chain), &list);
+	dir_walk(&chain, &list);
 	
 	for (size_t i = 0; i < list.size; ++i) {
 		print_str(get_file_name(&list.array[i]));
 		print_char('\n');
-		print_flush();
-		return 0;
 	}
 }
