@@ -1,104 +1,38 @@
 
-struct finfo {
-	struct dirent dirent;
-	struct stat stat;
-};
+#include <common.h>
+#include <libc/libc.h>
 
-struct finfo_list {
-	struct finfo *array;
-	size_t size;
+#include <ls/ls.h>
+
+const char *get_file_name(struct finfo *finfo)
+{
+	return finfo->fname;
 }
 
-
-void sys_error()
+int read_finfo(const char *path, struct finfo *finfo, struct dirent *dirent)
 {
-	const char *error_msg;
-	int old_errno = errno;
+	struct stat stat_entry;
 
-	BUG_ON(errno == 0, "sys error with no errno");
-
-	old_errno = errno;
-	errno = 0;
-
-	error_msg = strerror(old_errno);
-	panic_on(errno != 0, "strerror error");
-
-	puts_impl(error_msg);
-}
-
-void *do_malloc(size_t size)
-{
-	void *ret;
-
-	ret = malloc(size);
-	panic_on(ret == NULL, "no memory");
-
-	return ret;
-}
-
-void *do_realloc(void *oldptr, size_t old_size, size_t new_size)
-{
-	void *new_ptr;
-
-	new_ptr = do_malloc(new_size);
-	memcpy_impl(new_ptr, old_ptr, old_size);
-
-	return new_ptr;
-}
-
-DIR *do_opendir(const char *path)
-{
-	DIR *dir;
-
-	dir = opendir(path);
-
-	if (dir == NULL) {
-		sys_error();
-	}
-	
-	return dir;
-}
-
-struct dirent do_readdir(DIR *dir)
-{
-	struct dirent entry;
-
-	errno = 0;
-
-	entry = readdir(dir);
-	BUG_ON(errno != 0, "corrupted DIR stream");
-
-	return entry;
-}
-
-int do_stat(struct stat *stat_entry)
-{
-	if (stat(stat_entry)) {
-		sys_error();
-		return EXIT_FAILURE;
-	} else {
-		return EXIT_SUCCESS;
-	}
-}
-
-int read_finfo(struct finfo *finfo, struct dirent *dirent)
-{
-	const char *fname = dirent->d_name;
-
-	if (do_stat(&finfo->stat)) {
+	if (do_stat(path, &stat_entry)) {
 		return EXIT_FAILURE;
 	}
 
-	memcpy(&finfo->dirent, dirent, sizeof(struct dirent));
+	finfo->fname = strdup_impl(dirent->d_name);
 
 	return EXIT_SUCCESS;
 }
 
-int dir_walk(const char *path, struct finfo_list *list)
+void clear_finfo(struct finfo *finfo)
 {
-	const size_t dentry_init_size = 100;
-	const size_t dentry_realloc_factor = 100;
-	size_t dentry_alloc_size;
+	free(finfo->fname);
+	free(finfo);
+}
+
+int dir_walk(struct path_chain *path, struct finfo_list *list)
+{
+	const size_t array_init_size = 100;
+	const size_t array_realloc_factor = 100;
+	size_t array_alloc_size;
 
 	DIR *dir;
 	struct dirent *entry;
@@ -106,14 +40,14 @@ int dir_walk(const char *path, struct finfo_list *list)
 	list->array = NULL;
 	list->size = 0;
 
-	dir = do_opendir(path);
+	dir = do_opendir(path->path);
 	if (dir == NULL) {
 		return EXIT_FAILURE;
 	}
 
-	list->array = do_malloc(sizeof(struct dentry) * dentry_init_size);
-	list->size = dentry_init_size;
-	dentry_alloc_size = dentry_init_size;
+	list->array = do_malloc(sizeof(struct finfo) * array_init_size);
+	list->size = array_init_size;
+	array_alloc_size = array_init_size;
 
 	while (true) {
 		entry = do_readdir(dir);
@@ -121,12 +55,12 @@ int dir_walk(const char *path, struct finfo_list *list)
 			break;
 		}
 
-		if (list->size == dentry_alloc_size) {
-			dentry_alloc_size *= denry_realloc_factor;
-			list->array = do_realloc(lst->array, list->size * sizeof(struct finfo), dentry_alloc_size * sizeof(struct finfo));
+		if (list->size == array_alloc_size) {
+			array_alloc_size *= array_realloc_factor;
+			list->array = do_realloc(list->array, list->size * sizeof(struct finfo), array_alloc_size * sizeof(struct finfo));
 		}
 
-		if (read_finfo(&list->array[list->size], entry) != 0) {
+		if (read_finfo(path->path, &list->array[list->size], entry) != 0) {
 			continue;
 		}
 		++list->size;
@@ -135,8 +69,18 @@ int dir_walk(const char *path, struct finfo_list *list)
 	return EXIT_SUCCESS;
 }
 
-
-
 int main() {
+	struct finfo_list list;
+	struct path_chain chain = (struct path_chain){
+		.path = strdup_impl(".")
+	  };
 
+	dir_walk(&chain), &list);
+	
+	for (size_t i = 0; i < list.size; ++i) {
+		print_str(get_file_name(&list.array[i]));
+		print_char('\n');
+		print_flush();
+		return 0;
+	}
 }

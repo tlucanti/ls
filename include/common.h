@@ -7,6 +7,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <limits.h>
+
 #ifndef __always_inline
 #define __always_inline inline __attribute__((always_inline))
 #endif
@@ -29,8 +34,10 @@
 		(type *)((uintptr_t)__mptr - offsetof(type, member));      \
 	})
 
+#if defined(__has_builtin) && __has_builtin(__builtin_expect)
 #define likely(expr) __builtin_expect(!!(expr), 1)
 #define unlikely(expr) __builtin_expect(!!(expr), 0)
+#endif
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 #define __number_to_string(number) #number
@@ -44,24 +51,19 @@
 		rhs = c;              \
 	} while (false)
 
-#define panic(msg) __panic(__FILE__, number_to_string(__LINE__), msg)
-#define panic_on(expr, msg)           \
+#define panic(reason) __panic(__FILE__, __LINE__, reason)
+#define panic_on(expr, reason)        \
 	do {                          \
 		if (unlikely(expr)) { \
-			panic(msg);   \
+			panic(reason);   \
 		}                     \
 	} while (false)
 
-__cold static inline __panic(const char *file, const char *line, const char *msg)
-{
-	puts_impl("PANIC: ");
-	puts_impl(file);
-	puts_impl(":");
-	puts_impl(line);
-	puts_impl("\nreason: ");
-	puts_impl(msg);
-	puts_impl("\n");
-	exit(EXIT_FAILURE);
-}
+#define BUG(reason) panic(reason)
+#define BUG_ON(expr, reason) panic_on(expr, reason)
+
+void sys_error();
+
+void __panic(const char *file, unsigned long line, const char *reason);
 
 #endif /* _COMMON_H */
