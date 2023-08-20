@@ -23,6 +23,15 @@ void memcpy_impl(void *restrict dst, const void *restrict src, size_t size)
 	}
 }
 
+void *memdup_impl(void *restrict src, size_t size)
+{
+	void *ret;
+
+	ret = do_malloc(size);
+	memcpy_impl(ret, src, size);
+	return ret;
+}
+
 size_t strlen_impl(const char *restrict s)
 {
 #if __use_builtin(__builtin_strlen)
@@ -37,6 +46,24 @@ size_t strlen_impl(const char *restrict s)
 	}
 
 	return ret;
+}
+
+int strcmp_impl(const char *restrict s1, const char *restrict s2)
+{
+#if __use_builtin(__builtin_strcmp)
+	return __builtin_strcmp(s1, s2);
+#endif
+
+	while (*s1 != *s2) {
+		++s1;
+		++s2;
+	}
+	return *s2 - *s1;
+}
+	
+bool streq_impl(const char *restrict s1, const char *restrict s2)
+{
+	return strcmp_impl(s1, s2) == 0;
 }
 
 char *strdup_impl(const char *restrict s)

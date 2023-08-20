@@ -51,19 +51,25 @@
 		rhs = c;              \
 	} while (false)
 
-#define panic(reason) __panic(__FILE__, __LINE__, reason)
-#define panic_on(expr, reason)        \
+#define panic(reason) __panic(__FILE__, __LINE__, "panic", reason)
+#define panic_on(expr, reason)         \
+	do {                           \
+		if (unlikely(expr)) {  \
+			panic(reason); \
+		}                      \
+	} while (false)
+
+#define BUG(reason) __panic(__FILE__, __LINE__, "BUG", reason)
+#define BUG_ON(expr, reason)          \
 	do {                          \
 		if (unlikely(expr)) { \
-			panic(reason);   \
+			BUG(reason);  \
 		}                     \
 	} while (false)
 
-#define BUG(reason) panic(reason)
-#define BUG_ON(expr, reason) panic_on(expr, reason)
+void sys_error(const char *restrict source);
 
-void sys_error();
-
-void __panic(const char *file, unsigned long line, const char *reason);
+void __panic(const char *restrict file, unsigned long line,
+	     const char *restrict source, const char *restrict reason);
 
 #endif /* _COMMON_H */

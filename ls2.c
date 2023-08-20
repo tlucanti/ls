@@ -1,40 +1,15 @@
 
 #include <common.h>
 #include <libc/libc.h>
-
 #include <ls/ls.h>
-
-#include <libc/string.h>
-
-static const char *get_file_name(struct finfo *finfo)
-{
-	return finfo->fname;
-}
-
-static int read_finfo(const char *path, struct finfo *finfo, struct dirent *dirent)
-{
-	struct stat stat_entry;
-
-	if (do_stat(path, &stat_entry)) {
-		return EXIT_FAILURE;
-	}
-
-	finfo->fname = strdup_impl(dirent->d_name);
-
-	return EXIT_SUCCESS;
-}
-
-static void clear_finfo(struct finfo *finfo)
-{
-	free(finfo->fname);
-	free(finfo);
-}
+#include <ls/util.h>
 
 static int dir_walk(struct path_chain *path, struct finfo_list *list)
 {
 	const size_t array_init_size = 100;
 	const size_t array_realloc_factor = 100;
 	size_t array_alloc_size;
+	int ret;
 
 	DIR *dir;
 	struct dirent *entry;
@@ -62,41 +37,25 @@ static int dir_walk(struct path_chain *path, struct finfo_list *list)
 			list->array = do_realloc(list->array, list->size * sizeof(struct finfo), array_alloc_size * sizeof(struct finfo));
 		}
 
-		if (read_finfo(path->path, &list->array[list->size], entry) != 0) {
+		path_chain_push(path, entry->d_name);
+		ret = read_finfo(path->path, &list->array[list->size], entry);
+		path_chain_pop(path);
+		if (ret != 0) {
 			continue;
 		}
 		++list->size;
 	}
 
+	do_closedir(dir);
 	return EXIT_SUCCESS;
 }
 
-static void path_chain_push(struct path_chain *chain, const char *s)
+bool filter_fname(const char *fname, struct flags flags)
 {
-	const size_t chain_realloc_factor = 10;
-	size_t req_len = strlen_impl(s);
-
-	if (chain->dentry_size >= chain->dentry_alloc) {
-		chain->dentry_alloc *= chain_realloc_factor;
-		chain->dentry = do_realloc(chain->dentry, chain->dentry_size * sizeof(size_t), chain->dentry_alloc * sizeof(size_t));
+	if (fname[0] == '.') {
+		return false;
 	}
-	chain->dentry[chain->dentry_size] = chain->path_size;
-
-	if (chain->path_size + req_len + 2 >= chain->path_alloc) {
-		chain->path_alloc *= chain_realloc_factor;
-		chain->path = do_realloc(chain->path, chain->path_size * sizeof(char), chain->path_alloc * sizeof(char));
-	}
-	chain->path[chain->path_size] = '/';
-	++chain->path_size;
-
-	memcpy_impl(chain->path + chain->path_size, s, req_len + 1);
-}
-
-static void path_chain_pop(struct path_chain *chain)
-{
-	chain->path_size = chain->dentry[chain->dentry_size - 1];
-	chain->path[chain->path_size] = '\0';
-	--chain->dentry_size;
+	return true;
 }
 
 static void ls(struct path_chain *chain, struct finfo_list *list, struct flags flags)
@@ -108,7 +67,6 @@ static void ls(struct path_chain *chain, struct finfo_list *list, struct flags f
 	for (size_t i = 0; i < list->size; ++i) {
 		fname = get_file_name(&list->array[i]);
 		print_str(fname);
-		print_char('\n');
 	}
 
 	if (!flags.recursive) {
@@ -116,23 +74,32 @@ static void ls(struct path_chain *chain, struct finfo_list *list, struct flags f
 	}
 
 	for (size_t i = 0; i < list->size; ++i) {
+		if (!file_is_dir(&list->array[i])) {
+			continue;
+		}
 		fname = get_file_name(&list->array[i]);
+		if (streq_impl(fname, ".") || streq_impl(fname, "..")) {
+			continue;
+		}
+		if (!filter_fname(fname, flags)) {
+			continue;
+		}
+		path_chain_push(chain, fname);
+		print_char('\n');
 		print_str_raw(chain->path);
 		print_str(":");
-		path_chain_push(chain, fname);
 		ls(chain, list, flags);
 		path_chain_pop(chain);
 	}
 }
 
 int main() {
+	struct finfo_list list;
+	struct path_chain chain;
 	struct flags flags = {
 		.recursive = true
 	};
-	struct finfo_list list;
-	struct path_chain chain = (struct path_chain){
-		.path = strdup_impl(".")
-	};
 
+	path_chain_init(&chain, "./");
 	ls(&chain, &list, flags);
 }

@@ -3,7 +3,7 @@
 #include <libc/io.h>
 #include <string.h>
 
-void sys_error()
+void sys_error(const char *source)
 {
 	const char *error_msg;
 	int old_errno = errno;
@@ -16,14 +16,20 @@ void sys_error()
 	error_msg = strerror(old_errno);
 	panic_on(errno != 0, "strerror error");
 
+	__print_flush();
 	print_str_raw("ls: ");
+	print_str_raw(source);
+	print_str_raw(": ");
 	print_str_raw(error_msg);
 	print_char('\n');
 }
 
-__cold void __panic(const char *file, unsigned long line, const char *reason)
+__cold void __panic(const char *restrict file, unsigned long line,
+		    const char *restrict source, const char *restrict reason)
 {
-	print_str_raw("PANIC: ");
+	__print_flush();
+	print_str_raw(source);
+	print_str_raw(": ");
 	print_str_raw(file);
 	print_char(':');
 	print_uint(line);

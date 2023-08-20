@@ -2,8 +2,13 @@
 #ifndef _LS_LS_H
 #define _LS_LS_H
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdint.h>
+
 struct finfo {
 	char *fname;
+	mode_t mode;
 };
 
 struct finfo_list {

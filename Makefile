@@ -6,6 +6,6 @@ all:
 		-fdiagnostics-color=always -std=c99 \
 		-I include \
 		libc/fs.c libc/io.c libc/malloc.c libc/string.c \
-		src/common.c \
+		src/common.c src/util.c \
 		ls2.c \
 		-o ls
