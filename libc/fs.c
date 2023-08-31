@@ -9,7 +9,7 @@ DIR *do_opendir(const char *path)
 	dir = opendir(path);
 
 	if (dir == NULL) {
-		sys_error("opendir");
+		sys_error("opendir", path);
 	}
 	
 	return dir;
@@ -32,14 +32,14 @@ void do_closedir(DIR *dir)
 	int ret = closedir(dir);
 
 	if (ret != 0) {
-		sys_error("closedir");
+		sys_error("closedir", NULL);
 	}
 }
 
 int do_stat(const char *fname, struct stat *stat_entry)
 {
 	if (stat(fname, stat_entry)) {
-		sys_error("stat");
+		sys_error("stat", fname);
 		return EXIT_FAILURE;
 	} else {
 		return EXIT_SUCCESS;

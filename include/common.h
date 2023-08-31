@@ -51,12 +51,17 @@
 		rhs = c;              \
 	} while (false)
 
-#define panic(reason) __panic(__FILE__, __LINE__, "panic", reason)
-#define panic_on(expr, reason)         \
-	do {                           \
-		if (unlikely(expr)) {  \
-			panic(reason); \
-		}                      \
+#define __panic_no_reason() __panic(__FILE__, __LINE__, "panic", NULL)
+#define __panic_reasoned(reason) __panic(__FILE__, __LINE__, "panic", reason)
+#define __panic_switch(arg1, arg2, arg3, ...) arg3
+#define _panic_switch(...) \
+	__panic_switch(__VA_ARGS__, __panic_reasoned, __panic_no_reason, error)
+#define panic(...) _panic_switch(0, ##__VA_ARGS__)(__VA_ARGS__)
+#define panic_on(expr, ...)                 \
+	do {                                \
+		if (unlikely(expr)) {       \
+			panic(__VA_ARGS__); \
+		}                           \
 	} while (false)
 
 #define BUG(reason) __panic(__FILE__, __LINE__, "BUG", reason)
@@ -67,7 +72,7 @@
 		}                     \
 	} while (false)
 
-void sys_error(const char *restrict source);
+void sys_error(const char *restrict source, const char *cause);
 
 void __panic(const char *restrict file, unsigned long line,
 	     const char *restrict source, const char *restrict reason);

@@ -3,7 +3,7 @@
 #include <libc/io.h>
 #include <string.h>
 
-void sys_error(const char *source)
+void sys_error(const char *source, const char *cause)
 {
 	const char *error_msg;
 	int old_errno = errno;
@@ -19,6 +19,10 @@ void sys_error(const char *source)
 	__print_flush();
 	print_str_raw("ls: ");
 	print_str_raw(source);
+	if (cause != NULL) {
+		print_str_raw(": ");
+		print_str_raw(cause);
+	}
 	print_str_raw(": ");
 	print_str_raw(error_msg);
 	print_char('\n');

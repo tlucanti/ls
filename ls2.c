@@ -100,6 +100,7 @@ int main() {
 		.recursive = true
 	};
 
-	path_chain_init(&chain, "./");
+	path_chain_init(&chain, ".");
+	print_str(".:");
 	ls(&chain, &list, flags);
 }

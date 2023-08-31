@@ -80,14 +80,15 @@ void path_chain_push(struct path_chain *chain, const char *s)
 					 chain->path_alloc * sizeof(char));
 	}
 
+	chain->path[chain->path_size] = '/';
+	++chain->path_size;
+
 	memcpy_impl(chain->path + chain->path_size, s, req_len);
 	chain->path_size += req_len;
 
-	chain->path[chain->path_size] = '/';
-	chain->path[chain->path_size + 1] = '\0';
-	++chain->path_size;
+	chain->path[chain->path_size] = '\0';
 
-	memcpy_impl(chain->path + chain->path_size, s, req_len + 1);
+	//BUG_ON(strelen_impl(chain->path != chain->path_size);
 }
 
 void path_chain_pop(struct path_chain *chain)
