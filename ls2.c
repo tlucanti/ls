@@ -50,12 +50,17 @@ static int dir_walk(struct path_chain *path, struct finfo_list *list)
 	return EXIT_SUCCESS;
 }
 
-bool filter_fname(const char *fname, struct flags flags)
+bool skip_file(const char *fname, struct flags flags)
 {
 	if (fname[0] == '.') {
-		return false;
+		return true;
 	}
-	return true;
+	return false;
+}
+
+static void sort_list(struct finfo_list *list, struct flags flags)
+{
+	list_sort(list, false);
 }
 
 static void ls(struct path_chain *chain, struct finfo_list *list, struct flags flags)
@@ -63,6 +68,7 @@ static void ls(struct path_chain *chain, struct finfo_list *list, struct flags f
 	const char *fname;
 
 	dir_walk(chain, list);
+	sort_list(list, flags);
 
 	for (size_t i = 0; i < list->size; ++i) {
 		fname = get_file_name(&list->array[i]);
@@ -81,7 +87,7 @@ static void ls(struct path_chain *chain, struct finfo_list *list, struct flags f
 		if (streq_impl(fname, ".") || streq_impl(fname, "..")) {
 			continue;
 		}
-		if (!filter_fname(fname, flags)) {
+		if (skip_file(fname, flags)) {
 			continue;
 		}
 		path_chain_push(chain, fname);

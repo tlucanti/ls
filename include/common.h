@@ -43,12 +43,12 @@
 #define __number_to_string(number) #number
 #define number_to_string(number) __number_to_string(number)
 
-#define swap(lhs, rhs)                \
-	do {                          \
-		(void)(&lhs == &rhs); \
-		typeof(lhs) c = lhs;  \
-		lhs = rhs;            \
-		rhs = c;              \
+#define swap(lhs, rhs)                 \
+	do {                           \
+		(void)(&lhs == &rhs);  \
+		__typeof(lhs) c = lhs; \
+		lhs = rhs;             \
+		rhs = c;               \
 	} while (false)
 
 #define __panic_no_reason() __panic(__FILE__, __LINE__, "panic", NULL)

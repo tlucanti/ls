@@ -8,6 +8,7 @@
 
 struct finfo {
 	char *fname;
+	size_t fname_len;
 	mode_t mode;
 };
 

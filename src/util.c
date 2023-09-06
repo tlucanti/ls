@@ -12,7 +12,8 @@ int read_finfo(const char *path, struct finfo *finfo, struct dirent *dirent)
 		return EXIT_FAILURE;
 	}
 
-	finfo->fname = strdup_impl(dirent->d_name);
+	finfo->fname_len = strlen_impl(dirent->d_name);
+	finfo->fname = memdup_impl(dirent->d_name, finfo->fname_len);
 	finfo->mode = stat_entry.st_mode;
 
 	return EXIT_SUCCESS;
@@ -97,4 +98,50 @@ void path_chain_pop(struct path_chain *chain)
 	chain->path_size = chain->dentry[chain->dentry_size - 1];
 	chain->path[chain->path_size] = '\0';
 	--chain->dentry_size;
+}
+
+static bool filename_gt(struct finfo *lhs, struct finfo *rhs, bool reverse)
+{
+	ssize_t size_diff = get_fname_len(lhs) - get_fname_len(rhs);
+	bool ret;
+
+	if (unlikely(size_diff == 0)) {
+		ret = strcmp_impl(get_file_name(lhs), get_file_name(rhs)) > 0;
+	} else {
+		ret = size_diff >= 0;
+	}
+	return reverse ^ ret;
+
+static void __qsort_impl(struct finfo *list, size_t left, size_t right, bool reverse)
+{
+	size_t li, ri, pi;
+
+	li = left;
+	ri = right;
+	pi = (left + right) / 2;
+	while (ri - li > 0) {
+		while (li < pi && filename_gt(&list[li], &list[pi])) {
+			li += 1;
+		}
+		while (ri > pi && filename_gt(&list[ri], &lisr[pi])) {
+			ri -= 1;
+		}
+		swap(list[li], list[ri]);
+		if (pi == li) {
+			pi = ri;
+		} else if (pi == ri) {
+			pi = li;
+		}
+	}
+	if (pi - left > 1) {
+		__qsort_impl(list, left, pi, reverse);
+	}
+	if (right - pi > 1) {
+		__qsort_impl(list, pi, right, reverse);
+	}
+}
+
+void list_sort(struct finfo_list *list, bool reverse)
+{
+	__qsort_impl(list->array, 0, list->size - 1, reverse);
 }
