@@ -30,6 +30,11 @@ const char *get_file_name(struct finfo *finfo)
 	return finfo->fname;
 }
 
+size_t get_fname_len(struct finfo *finfo)
+{
+	return finfo->fname_len;
+}
+
 bool file_is_dir(struct finfo *finfo)
 {
 	return S_ISDIR(finfo->mode);
@@ -102,15 +107,18 @@ void path_chain_pop(struct path_chain *chain)
 
 static bool filename_gt(struct finfo *lhs, struct finfo *rhs, bool reverse)
 {
-	ssize_t size_diff = get_fname_len(lhs) - get_fname_len(rhs);
+	ssize_t size_diff = get_fname_len(rhs) - get_fname_len(lhs);
 	bool ret;
 
 	if (unlikely(size_diff == 0)) {
-		ret = strcmp_impl(get_file_name(lhs), get_file_name(rhs)) > 0;
+		ret = memcmp_impl(get_file_name(lhs), get_file_name(rhs),
+				  get_fname_len(lhs)) > 0;
 	} else {
 		ret = size_diff >= 0;
 	}
+
 	return reverse ^ ret;
+}
 
 static void __qsort_impl(struct finfo *list, size_t left, size_t right, bool reverse)
 {
@@ -120,10 +128,10 @@ static void __qsort_impl(struct finfo *list, size_t left, size_t right, bool rev
 	ri = right;
 	pi = (left + right) / 2;
 	while (ri - li > 0) {
-		while (li < pi && filename_gt(&list[li], &list[pi])) {
+		while (li < pi && filename_gt(&list[li], &list[pi], reverse)) {
 			li += 1;
 		}
-		while (ri > pi && filename_gt(&list[ri], &lisr[pi])) {
+		while (ri > pi && filename_gt(&list[ri], &list[pi], reverse)) {
 			ri -= 1;
 		}
 		swap(list[li], list[ri]);

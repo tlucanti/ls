@@ -5,7 +5,7 @@
 
 #if defined(__has_builtin) && !defined(CONFIG_NO_LIBC)
 #define __use_builtin(sym) __has_builtin(sym)
-#else 
+#else
 #define __use_builtin false
 #endif
 
@@ -21,6 +21,25 @@ void memcpy_impl(void *restrict dst, const void *restrict src, size_t size)
 		++dst;
 		++src;
 	}
+}
+
+int memcmp_impl(const void *restrict s1, const void *restrict s2, size_t size)
+{
+#if __use_builtin(__builtin_memcmp)
+	return __builtin_memcmp(s1, s2, size);
+#endif
+
+	const unsigned char *restrict ss1 = s1;
+	const unsigned char *restrict ss2 = s2;
+
+	while (size--) {
+		if (*ss1 != *ss2) {
+			break;
+		}
+		++ss1;
+		++ss2;
+	}
+	return *ss2 - *ss1;
 }
 
 void *memdup_impl(void *restrict src, size_t size)
@@ -60,7 +79,7 @@ int strcmp_impl(const char *restrict s1, const char *restrict s2)
 	}
 	return *s2 - *s1;
 }
-	
+
 bool streq_impl(const char *restrict s1, const char *restrict s2)
 {
 	return strcmp_impl(s1, s2) == 0;
